@@ -4,15 +4,13 @@ import sys
 import numpy as np
 import os.path
 
+img = "./test.jpg"
+
 confThreshold = 0.5
 nmsThreshold = 0.4
 
 inpWidth = 416
 inpHeight = 416
-
-parser = argparse.ArgumentParser(description='Object Detection using YOLO in OPENCV')
-parser.add_argument('--image', help='Path to image file.')
-args = parser.parse_args()
 
 classesFile = "files/classes.names";
 
@@ -31,16 +29,19 @@ def getOutputsNames(net):
     layersNames = net.getLayerNames()
     return [layersNames[i[0] - 1] for i in net.getUnconnectedOutLayers()]
 
-def cropPred(left, top, right, bottom):
+def cropPred(frame, left, top, right, bottom):
     diff_height = bottom - top
     diff_width = right - left
     crop_img = frame[top:top+diff_height, left:left+diff_width]
-    cv.imshow('Image', crop_img)
+    # cv.imshow('Image', crop_img)
 
-    outputFile = "out_" + str(args.image)
+    outputFile = "out_" + str(img)
     cv.imwrite(outputFile, crop_img.astype(np.uint8));
 
 def postprocess(frame, outs):
+    confThreshold = 0.5
+    nmsThreshold = 0.4
+
     frameHeight = frame.shape[0]
     frameWidth = frame.shape[1]
 
@@ -51,14 +52,11 @@ def postprocess(frame, outs):
     confidences = []
     boxes = []
     for out in outs:
-        print("out.shape : ", out.shape)
+        # print("out.shape : ", out.shape)
         for detection in out:
             scores = detection[5:]
             classId = np.argmax(scores)
             confidence = scores[classId]
-            if detection[4]>confThreshold:
-                print(detection[4], " - ", scores[classId], " - th : ", confThreshold)
-                print(detection)
             if confidence > confThreshold:
                 center_x = int(detection[0] * frameWidth)
                 center_y = int(detection[1] * frameHeight)
@@ -78,13 +76,15 @@ def postprocess(frame, outs):
         top = box[1]
         width = box[2]
         height = box[3]
-        cropPred(left, top, left + width, top + height)
+        cropPred(frame, left, top, left + width, top + height)
 
-cap = cv.VideoCapture(args.image)
-hasFrame, frame = cap.read()
+def execute():
+    cap = cv.VideoCapture(img)
+    hasFrame, frame = cap.read()
 
-blob = cv.dnn.blobFromImage(frame, 1/255, (inpWidth, inpHeight), [0,0,0], 1, crop=False)
-net.setInput(blob)
-outs = net.forward(getOutputsNames(net))
+    blob = cv.dnn.blobFromImage(frame, 1/255, (inpWidth, inpHeight), [0,0,0], 1, crop=False)
+    net.setInput(blob)
+    outs = net.forward(getOutputsNames(net))
 
-postprocess(frame, outs)
+    postprocess(frame, outs)
+
